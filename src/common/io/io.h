@@ -19,7 +19,7 @@
     #define FF_INVALID_FD (-1)
     // procfs's file can be changed between read calls such as /proc/meminfo and /proc/uptime.
     // one safe way to read correct data is reading the whole file in a single read syscall
-    #define PROC_FILE_BUFFSIZ (32 * 1024)
+    #define PROC_FILE_BUFFSIZ (32 * 1024)ffListFilesRecursively
 #endif
 
 static inline FFNativeFD FFUnixFD2NativeFD(int unixfd)
@@ -169,7 +169,7 @@ static inline void ffUnsuppressIO(bool* suppressed)
 
 #define FF_SUPPRESS_IO() bool __attribute__((__cleanup__(ffUnsuppressIO), __unused__)) io_suppressed__ = ffSuppressIO(true)
 
-void ffListFilesRecursively(const char* path, bool pretty);
+void ffListFilesRecursively(const char* path, void (*cb)(const char*, void*), void* cbData);
 
 FF_C_NONNULL(1)
 static inline bool wrapClose(FFNativeFD* pfd)
