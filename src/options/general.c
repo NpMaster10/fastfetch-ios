@@ -24,8 +24,8 @@ const char* ffOptionsParseGeneralJsonConfig(FFOptionsGeneral* options, yyjson_va
         {
             if (!yyjson_is_str(val))
                 return "general.preRun must be a string";
-            if (system(unsafe_yyjson_get_str(val)) < 0)
-                return "Failed to execute preRun command";
+           (void) val;//if (system(unsafe_yyjson_get_str(val)) < 0)
+                return "System command execution not supported on iOS";
         }
         else if (unsafe_yyjson_equals_str(key, "detectVersion"))
             options->detectVersion = yyjson_get_bool(val);
