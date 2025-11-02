@@ -1,6 +1,6 @@
 #include "kmod.h"
 
-#if __linux__
+#if defined(__linux__)
 #include "common/io/io.h"
 
 bool ffKmodLoaded(const char* modName)
@@ -23,7 +23,7 @@ bool ffKmodLoaded(const char* modName)
     temp[1 + len] = ' ';
     return memmem(modules.chars, modules.length, temp, len + 2) != NULL;
 }
-#elif __FreeBSD__
+#elif defined(__FreeBSD__)
 #include <sys/param.h>
 #include <sys/module.h>
 
@@ -31,9 +31,8 @@ bool ffKmodLoaded(const char* modName)
 {
     return modfind(modName) >= 0;
 }
-#elif __NetBSD__
+#elif defined(__NetBSD__)
 #include "util/stringUtils.h"
-
 #include <sys/module.h>
 #include <sys/param.h>
 
@@ -74,22 +73,31 @@ bool ffKmodLoaded(const char* modName)
 
     return false;
 }
-#elif __APPLE__
+#elif defined(__APPLE__)
 #include "util/apple/cf_helpers.h"
-#include <IOKit/kext/KextManager.h>
 #include <CoreFoundation/CoreFoundation.h>
+
+#if TARGET_OS_OSX
+#include <IOKit/kext/KextManager.h>
+#endif
 
 bool ffKmodLoaded(const char* modName)
 {
+#if TARGET_OS_OSX
     FF_CFTYPE_AUTO_RELEASE CFStringRef name = CFStringCreateWithCString(kCFAllocatorDefault, modName, kCFStringEncodingUTF8);
     FF_CFTYPE_AUTO_RELEASE CFArrayRef identifiers = CFArrayCreate(kCFAllocatorDefault, (const void**) &name, 1, &kCFTypeArrayCallBacks);
     FF_CFTYPE_AUTO_RELEASE CFArrayRef keys = CFArrayCreate(kCFAllocatorDefault, NULL, 0, NULL);
     FF_CFTYPE_AUTO_RELEASE CFDictionaryRef kextInfo = KextManagerCopyLoadedKextInfo(identifiers, keys);
     return CFDictionaryContainsKey(kextInfo, name);
+#else
+    (void)modName; // suppress unused parameter warning
+    return true; // iOS fallback
+#endif
 }
 #else
 bool ffKmodLoaded(FF_MAYBE_UNUSED const char* modName)
 {
-    return true; // Don't generate kernel module related errors
+    return true; // fallback for unknown platforms
 }
 #endif
+
