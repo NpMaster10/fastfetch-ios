@@ -397,8 +397,8 @@ set(LIBFASTFETCH_SRC
     src/detection/gpu/gpu.c
     src/detection/media/media.c
     src/detection/netio/netio.c
-    src/detection/opencl/opencl.c
-    src/detection/opengl/opengl_shared.c
+    #src/detection/opencl/opencl.c
+    #src/detection/opengl/opengl_shared.c
     src/detection/os/os.c
     src/detection/packages/packages.c
     src/detection/physicalmemory/physicalmemory.c
@@ -559,7 +559,7 @@ if(LINUX)
         src/detection/memory/memory_linux.c
         src/detection/mouse/mouse_linux.c
         src/detection/netio/netio_linux.c
-        src/detection/opengl/opengl_linux.c
+        #src/detection/opengl/opengl_linux.c
         src/detection/os/os_linux.c
         src/detection/packages/packages_linux.c
         src/detection/packages/packages_nix.c
