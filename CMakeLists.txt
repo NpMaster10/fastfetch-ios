@@ -1656,27 +1656,6 @@ if(LINUX)
         endif()
     endif()
 elseif(APPLE)
-    if(NOT IOS)  # macOS only
-        target_link_libraries(libfastfetch
-            PRIVATE "-framework Cocoa"
-            PRIVATE "-framework AVFoundation"
-            PRIVATE "-framework CoreFoundation"
-            PRIVATE "-framework CoreAudio"
-            PRIVATE "-framework CoreMedia"
-            PRIVATE "-framework CoreVideo"
-            PRIVATE "-framework CoreWLAN"
-            PRIVATE "-framework IOBluetooth"
-            PRIVATE "-framework IOKit"
-            PRIVATE "-framework Metal"
-            PRIVATE "-framework OpenGL"
-            PRIVATE "-framework OpenCL"
-            PRIVATE "-framework SystemConfiguration"
-            PRIVATE "-weak_framework CoreDisplay"
-            PRIVATE "-F /System/Library/PrivateFrameworks"
-            PRIVATE "-weak_framework DisplayServices"
-            PRIVATE "-weak_framework MediaRemote"
-        )
-    else() # iOS only
         target_link_libraries(libfastfetch
             PRIVATE "-framework AVFoundation"
             PRIVATE "-framework Foundation"
@@ -1686,7 +1665,6 @@ elseif(APPLE)
             PRIVATE "-framework Metal"
             PRIVATE "-framework SystemConfiguration"
         )
-    endif()
 elseif(WIN32)
     target_link_libraries(libfastfetch
         PRIVATE "dwmapi"
