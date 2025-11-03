@@ -5,11 +5,11 @@
     #include <TargetConditionals.h>
 #endif
 
-#if defined(__APPLE__) && !TARGET_OS_IPHONE
+#if defined(__APPLE__) && TARGET_OS_MAC && !TARGET_OS_IPHONE
 
 #define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl.h>
-#include <OpenGL/OpenGL.h> // For CGL* APIs
+#include <OpenGL/OpenGL.h> // brings in CGL
 
 void ffOpenGLHandleResult(FFOpenGLResult* result, __typeof__(&glGetString) ffglGetString);
 
@@ -67,23 +67,35 @@ const char* ffDetectOpenGL(FFOpenGLOptions* options, FFOpenGLResult* result)
         const char* ffOpenGLDetectByEGL(FFOpenGLResult* result);
         return ffOpenGLDetectByEGL(result);
         #else
-        return "fastfetch was compiled without EGL support";
+        return "fastfetch was compiled without egl support";
         #endif
     }
     else
         return "Unsupported OpenGL library";
 }
 
-#else // iOS fallback
+#elif defined(__APPLE__) && TARGET_OS_IPHONE
 
+// iOS fallback
 const char* ffDetectOpenGL(FFOpenGLOptions* options, FFOpenGLResult* result)
 {
+    (void)options; // silence unused parameter warning
+
     ffStrbufSetS(&result->library, "OpenGL not available on iOS");
     ffStrbufSetS(&result->vendor, "");
     ffStrbufSetS(&result->renderer, "");
     ffStrbufSetS(&result->version, "");
-    ffStrbufSetS(&result->shadingLanguageVersion, "");
+
     return NULL;
+}
+
+#else
+
+const char* ffDetectOpenGL(FFOpenGLOptions* options, FFOpenGLResult* result)
+{
+    (void)options;
+    (void)result;
+    return "OpenGL detection not supported on this platform";
 }
 
 #endif
