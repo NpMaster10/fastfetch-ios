@@ -1,15 +1,23 @@
 #include "sound.h"
 #include "util/apple/cf_helpers.h"
 
+#if defined(__APPLE__)
+    #include <TargetConditionals.h>
+#endif
+
+#if defined(__APPLE__) && TARGET_OS_MAC && !TARGET_OS_IPHONE
 #include <CoreAudio/CoreAudio.h>
 #include <AvailabilityMacros.h>
 
 #ifndef MAC_OS_VERSION_12_0
 #define kAudioObjectPropertyElementMain kAudioObjectPropertyElementMaster
 #endif
+#endif
 
 const char* ffDetectSound(FFlist* devices /* List of FFSoundDevice */)
 {
+#if defined(__APPLE__) && TARGET_OS_MAC && !TARGET_OS_IPHONE
+
     AudioDeviceID mainDeviceId;
     UInt32 dataSize = sizeof(mainDeviceId);
     if(AudioObjectGetPropertyData(kAudioObjectSystemObject, &(AudioObjectPropertyAddress){
@@ -40,24 +48,6 @@ const char* ffDetectSound(FFlist* devices /* List of FFSoundDevice */)
         }, 0, NULL, &dataSize) == kAudioHardwareNoError && dataSize > 0)
             continue;
 
-        uint32_t dataSource;
-        dataSize = sizeof(dataSource);
-        if(AudioObjectGetPropertyData(deviceId, &(AudioObjectPropertyAddress){
-            kAudioDevicePropertyDataSource,
-            kAudioObjectPropertyScopeOutput,
-            kAudioObjectPropertyElementMain
-        }, 0, NULL, &dataSize, &dataSource) == kAudioHardwareNoError && dataSource == 'hdpn')
-        {
-            uint32_t connected;
-            dataSize = sizeof(connected);
-            if(AudioObjectGetPropertyData(deviceId, &(AudioObjectPropertyAddress){
-                kAudioDevicePropertyJackIsConnected,
-                kAudioObjectPropertyScopeOutput,
-                kAudioObjectPropertyElementMain
-            }, 0, NULL, &dataSize, &connected) == kAudioHardwareNoError)
-                if (!connected) continue;
-        }
-
         FFSoundDevice* device = (FFSoundDevice*) ffListAdd(devices);
         device->main = deviceId == mainDeviceId;
         device->active = false;
@@ -66,6 +56,7 @@ const char* ffDetectSound(FFlist* devices /* List of FFSoundDevice */)
         ffStrbufInit(&device->name);
         ffStrbufInitStatic(&device->platformApi, "Core Audio");
 
+        // Device UID
         FF_CFTYPE_AUTO_RELEASE CFStringRef uid = NULL;
         dataSize = sizeof(uid);
         if(AudioObjectGetPropertyData(deviceId, &(AudioObjectPropertyAddress) {
@@ -77,6 +68,7 @@ const char* ffDetectSound(FFlist* devices /* List of FFSoundDevice */)
         else
             ffStrbufAppendF(&device->identifier, "ID-%u", (unsigned) deviceId);
 
+        // Device Name
         FF_CFTYPE_AUTO_RELEASE CFStringRef name = NULL;
         dataSize = sizeof(name);
         if(AudioObjectGetPropertyData(deviceId, &(AudioObjectPropertyAddress){
@@ -118,36 +110,13 @@ const char* ffDetectSound(FFlist* devices /* List of FFSoundDevice */)
                 kAudioObjectPropertyElementMain
             }, 0, NULL, &dataSize, &volume) == kAudioHardwareNoError)
                 device->volume = (uint8_t) (volume * 100 + 0.5);
-            else
-            {
-                // Try detecting volume from channels
-                uint32_t channels[2];
-                dataSize = sizeof(channels);
-                if (AudioObjectGetPropertyData(deviceId, &(AudioObjectPropertyAddress){
-                    kAudioDevicePropertyPreferredChannelsForStereo,
-                    kAudioObjectPropertyScopeOutput,
-                    kAudioObjectPropertyElementMain
-                }, 0, NULL, &dataSize, channels) == kAudioHardwareNoError)
-                {
-                    dataSize = sizeof(volume);
-                    if (AudioObjectGetPropertyData(deviceId, &(AudioObjectPropertyAddress){
-                        kAudioDevicePropertyVolumeScalar,
-                        kAudioObjectPropertyScopeOutput,
-                        channels[0]
-                    }, 0, NULL, &dataSize, &volume) == kAudioHardwareNoError)
-                    {
-                        float temp;
-                        if (AudioObjectGetPropertyData(deviceId, &(AudioObjectPropertyAddress){
-                            kAudioDevicePropertyVolumeScalar,
-                            kAudioObjectPropertyScopeOutput,
-                            channels[1]
-                        }, 0, NULL, &dataSize, &temp) == kAudioHardwareNoError)
-                            device->volume = (uint8_t) ((volume + temp) / 2 * 100 + 0.5);
-                    }
-                }
-            }
         }
     }
 
     return NULL;
+
+#else
+    (void)devices; // suppress unused parameter warning
+    return "Sound detection not supported on iOS";
+#endif
 }
