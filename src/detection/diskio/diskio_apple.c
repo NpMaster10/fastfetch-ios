@@ -1,6 +1,12 @@
 #include "diskio.h"
 #include "util/apple/cf_helpers.h"
 
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+
+#if defined(TARGET_OS_MAC) && !TARGET_OS_IPHONE
+
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/storage/IOMedia.h>
@@ -30,7 +36,7 @@ const char* ffDiskIOGetIoCounters(FFlist* result, FFDiskIOOptions* options)
         if (IORegistryEntryGetParentEntry(entryPartition, kIOServicePlane, &entryDriver) != KERN_SUCCESS)
             continue;
 
-        if (!IOObjectConformsTo(entryDriver, kIOBlockStorageDriverClass)) // physical disk only
+        if (!IOObjectConformsTo(entryDriver, kIOBlockStorageDriverClass))
             continue;
 
         FF_CFTYPE_AUTO_RELEASE CFDictionaryRef statistics = IORegistryEntryCreateCFProperty(entryDriver, CFSTR(kIOBlockStorageDriverStatisticsKey), kCFAllocatorDefault, kNilOptions);
@@ -56,3 +62,15 @@ const char* ffDiskIOGetIoCounters(FFlist* result, FFDiskIOOptions* options)
 
     return NULL;
 }
+
+#else
+
+// iOS stub
+const char* ffDiskIOGetIoCounters(FFlist* result, FFDiskIOOptions* options)
+{
+    (void)result;
+    (void)options;
+    return "Disk IO detection is not supported on iOS";
+}
+
+#endif
