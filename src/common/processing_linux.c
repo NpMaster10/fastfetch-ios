@@ -331,8 +331,19 @@ void ffProcessGetInfoLinux(pid_t pid, FFstrbuf* processName, FFstrbuf* exe, cons
     }
     else
     {
-        char buf[PROC_PIDPATHINFO_MAXSIZE];
-        int length = proc_pidpath(pid, buf, ARRAY_SIZE(buf));
+#if defined(__APPLE__) && !defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
+// macOS: use proc_pidpath
+char buf[PROC_PIDPATHINFO_MAXSIZE];
+int length = proc_pidpath(pid, buf, ARRAY_SIZE(buf));
+#elif defined(__APPLE__)
+// iOS: proc_pidpath not available
+char buf[1] = "";
+int length = 0;
+#else
+// Linux / others...
+char buf[PATH_MAX];
+int length = readlink(path, buf, sizeof(buf));
+#endif
         if (length > 0)
         {
             ffStrbufEnsureFixedLengthFree(exe, (uint32_t) length);
