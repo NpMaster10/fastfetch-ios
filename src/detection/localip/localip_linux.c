@@ -15,6 +15,10 @@
 #include <inttypes.h>
 #include <fcntl.h>
 
+#if defined(__APPLE__)
+    #include <TargetConditionals.h>
+#endif
+
 #ifdef __linux__
 #include <linux/ethtool.h>
 #include <linux/sockios.h>
