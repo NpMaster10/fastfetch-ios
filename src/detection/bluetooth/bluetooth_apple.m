@@ -1,5 +1,9 @@
 #include "bluetooth.h"
 
+#if defined(__APPLE__)
+    #include <TargetConditionals.h>
+#endif
+
 #if defined(__APPLE__) && !TARGET_OS_IPHONE
 
 #import <IOBluetooth/IOBluetooth.h>
