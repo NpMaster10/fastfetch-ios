@@ -1192,7 +1192,7 @@ elseif(Haiku)
         src/detection/memory/memory_haiku.c
         src/detection/mouse/mouse_haiku.cpp
         src/detection/netio/netio_haiku.cpp
-        src/detection/opengl/opengl_haiku.cpp
+        #src/detection/opengl/opengl_haiku.cpp
         src/detection/os/os_haiku.c
         src/detection/packages/packages_haiku.c
         src/detection/poweradapter/poweradapter_nosupport.c
@@ -1271,7 +1271,7 @@ elseif(GNU)
         src/detection/memory/memory_linux.c
         src/detection/mouse/mouse_nosupport.c
         src/detection/netio/netio_nosupport.c
-        src/detection/opengl/opengl_linux.c
+        #src/detection/opengl/opengl_linux.c
         src/detection/os/os_linux.c
         src/detection/packages/packages_linux.c
         src/detection/packages/packages_nix.c
