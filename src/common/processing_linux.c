@@ -15,13 +15,16 @@
 #if !(__ANDROID__ || __OpenBSD__)
     #include <spawn.h>
 #endif
-
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__FreeBSD__) || (defined(__APPLE__) && !defined(__IPHONE_OS_VERSION_MIN_REQUIRED))
     #include <sys/types.h>
     #include <sys/user.h>
     #include <sys/sysctl.h>
+#elif defined(__APPLE__)
+    // iOS: sys/user.h is not available, skip it
+    #include <sys/types.h>
+    #include <sys/sysctl.h>
 #endif
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
     #include <libproc.h>
 #elif defined(__sun)
     #include <procfs.h>
@@ -36,6 +39,7 @@
     #include <OS.h>
     #include <image.h>
 #endif
+
 
 #ifndef environ
 extern char** environ;
