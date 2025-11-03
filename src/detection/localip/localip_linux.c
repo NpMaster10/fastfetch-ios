@@ -562,7 +562,8 @@ const char* ffDetectLocalIps(const FFLocalIpOptions* options, FFlist* results)
             if (adapter->mac->ifa_addr)
             {
                 #if __FreeBSD__ || __OpenBSD__ || __APPLE__ || __NetBSD__ || __HAIKU__
-                uint8_t* ptr = (uint8_t*) LLADDR((struct sockaddr_dl *)adapter->mac->ifa_addr);
+                //uint8_t* ptr = (uint8_t*) LLADDR((struct sockaddr_dl *)adapter->mac->ifa_addr);
+                uint8_t* ptr = (uint8_t[]){0,0,0,0,0,0};
                 #else
                 uint8_t* ptr = ((struct sockaddr_ll *)adapter->mac->ifa_addr)->sll_addr;
                 #endif
