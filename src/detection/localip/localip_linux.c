@@ -640,10 +640,12 @@ const char* ffDetectLocalIps(const FFLocalIpOptions* options, FFlist* results)
                     #elif __FreeBSD__ || __APPLE__ || __OpenBSD__ || __NetBSD__
                     struct ifmediareq ifmr = {};
                     ffStrCopy(ifmr.ifm_name, iface->name.chars, IFNAMSIZ);
-                    if (ioctl(sockfd, SIOCGIFMEDIA, &ifmr) == 0 && (IFM_TYPE(ifmr.ifm_active) & IFM_ETHER))
+                    //if (ioctl(sockfd, SIOCGIFMEDIA, &ifmr) == 0 && (IFM_TYPE(ifmr.ifm_active) & IFM_ETHER))
+                    if (0)
                     {
                         FF_DEBUG("Interface %s media type: 0x%x", iface->name.chars, IFM_SUBTYPE(ifmr.ifm_active));
-                        switch (IFM_SUBTYPE(ifmr.ifm_active))
+                        //switch (IFM_SUBTYPE(ifmr.ifm_active))
+                        switch(0)
                         {
                         #ifdef IFM_HPNA_1
                         case IFM_HPNA_1:
