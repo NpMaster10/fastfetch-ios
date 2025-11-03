@@ -1,8 +1,28 @@
 #include "netio.h"
-
 #include "common/netif/netif.h"
 #include "util/mallocHelper.h"
 
+#ifdef __APPLE__
+// iOS/macOS: no <net/if_mib.h> or ifmibdata
+const char* ffNetIOGetIoCounters(FFlist* result, FFNetIOOptions* options)
+{
+    // Create a single dummy network interface as placeholder
+    FFNetIOResult* counters = (FFNetIOResult*) ffListAdd(result);
+    *counters = (FFNetIOResult){
+        .name = ffStrbufCreateS("en0"),
+        .txBytes = 0,
+        .rxBytes = 0,
+        .txPackets = 0,
+        .rxPackets = 0,
+        .txErrors = 0,
+        .rxErrors = 0,
+        .txDrops = 0,
+        .rxDrops = 0,
+        .defaultRoute = true
+    };
+    return NULL;
+}
+#else
 #include <net/if.h>
 #include <net/if_mib.h>
 #include <sys/sysctl.h>
@@ -25,7 +45,6 @@ const char* ffNetIOGetIoCounters(FFlist* result, FFNetIOOptions* options)
         return "sysctl(mib, ARRAY_SIZE(mib), buf, &bufSize, 0, 0) failed";
 
     size_t ifCount = bufSize / sizeof(struct ifmibdata);
-
     const char* defaultRouteIfName = ffNetifGetDefaultRouteV4()->ifName;
 
     for (size_t i = 0; i < ifCount; i++)
@@ -34,7 +53,8 @@ const char* ffNetIOGetIoCounters(FFlist* result, FFNetIOOptions* options)
         if (!(mibdata->ifmd_flags & IFF_RUNNING) || (mibdata->ifmd_flags & IFF_NOARP))
             continue;
 
-        if (options->namePrefix.length && strncmp(mibdata->ifmd_name, options->namePrefix.chars, options->namePrefix.length) != 0)
+        if (options->namePrefix.length &&
+            strncmp(mibdata->ifmd_name, options->namePrefix.chars, options->namePrefix.length) != 0)
             continue;
 
         FFNetIOResult* counters = (FFNetIOResult*) ffListAdd(result);
@@ -54,3 +74,4 @@ const char* ffNetIOGetIoCounters(FFlist* result, FFNetIOOptions* options)
 
     return NULL;
 }
+#endif
