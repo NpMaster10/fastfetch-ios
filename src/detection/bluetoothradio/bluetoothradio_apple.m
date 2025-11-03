@@ -1,6 +1,12 @@
 #include "bluetoothradio.h"
 #include "common/processing.h"
 
+#if defined(__APPLE__)
+    #include <TargetConditionals.h>
+#endif
+
+#if defined(TARGET_OS_MAC) && !TARGET_OS_IPHONE
+
 #import <IOBluetooth/IOBluetooth.h>
 
 // For some reason the official declaration of IOBluetoothHostController doesn't include property `controllers`
@@ -67,3 +73,14 @@ const char* ffDetectBluetoothRadio(FFlist* devices /* FFBluetoothRadioResult */)
 
     return NULL;
 }
+
+#else
+
+// iOS stub
+const char* ffDetectBluetoothRadio(FFlist* devices /* FFBluetoothRadioResult */)
+{
+    (void)devices;
+    return NULL; // iOS has no IOBluetooth API
+}
+
+#endif
