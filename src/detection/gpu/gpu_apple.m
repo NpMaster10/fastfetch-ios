@@ -1,21 +1,17 @@
 #include "gpu.h"
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
+#if TARGET_OS_OSX
 #import <Metal/MTLDevice.h>
 #import <IOKit/kext/KextManager.h>
-
-#ifndef MAC_OS_VERSION_26_0
-    #define MTLGPUFamilyMetal4 ((MTLGPUFamily) 5002)
-#endif
-#ifndef MAC_OS_VERSION_13_0
-    #define MTLGPUFamilyMetal3 ((MTLGPUFamily) 5001)
-#endif
-#ifndef MAC_OS_X_VERSION_10_15
-    #define MTLFeatureSet_macOS_GPUFamily1_v4 ((MTLFeatureSet) 10004)
-    #define MTLFeatureSet_macOS_GPUFamily2_v1 ((MTLFeatureSet) 10005)
 #endif
 
 const char* ffGpuDetectDriverVersion(FFlist* gpus)
 {
+#if TARGET_OS_OSX
     if (@available(macOS 10.7, *))
     {
         NSMutableArray* arr = NSMutableArray.new;
@@ -35,10 +31,16 @@ const char* ffGpuDetectDriverVersion(FFlist* gpus)
         return NULL;
     }
     return "Unsupported macOS version";
+#else
+    // iOS stub
+    (void)gpus;
+    return NULL;
+#endif
 }
 
 const char* ffGpuDetectMetal(FFlist* gpus)
 {
+#if TARGET_OS_OSX
     if (@available(macOS 10.13, *))
     {
         for (id<MTLDevice> device in MTLCopyAllDevices())
@@ -54,34 +56,33 @@ const char* ffGpuDetectMetal(FFlist* gpus)
             }
             if (!gpu) continue;
 
-            #ifndef MAC_OS_X_VERSION_10_15
-            if ([device supportsFeatureSet:MTLFeatureSet_macOS_GPUFamily2_v1])
-                ffStrbufSetStatic(&gpu->platformApi, "Metal Feature Set 2");
-            else if ([device supportsFeatureSet:MTLFeatureSet_macOS_GPUFamily1_v1])
-                ffStrbufSetStatic(&gpu->platformApi, "Metal Feature Set 1");
-            #else // MAC_OS_X_VERSION_10_15
-            #pragma clang diagnostic push
-            #pragma clang diagnostic ignored "-Wunguarded-availability-new"
-            if ([device supportsFamily:MTLGPUFamilyMetal4])
-                ffStrbufSetStatic(&gpu->platformApi, "Metal 4");
-            else if ([device supportsFamily:MTLGPUFamilyMetal3])
-                ffStrbufSetStatic(&gpu->platformApi, "Metal 3");
-            #pragma clang diagnostic pop
-            else if ([device supportsFamily:MTLGPUFamilyCommon3])
-                ffStrbufSetStatic(&gpu->platformApi, "Metal Common 3");
-            else if ([device supportsFamily:MTLGPUFamilyCommon2])
-                ffStrbufSetStatic(&gpu->platformApi, "Metal Common 2");
-            else if ([device supportsFamily:MTLGPUFamilyCommon1])
-                ffStrbufSetStatic(&gpu->platformApi, "Metal Common 1");
-
             gpu->type = device.hasUnifiedMemory ? FF_GPU_TYPE_INTEGRATED : FF_GPU_TYPE_DISCRETE;
             gpu->index = (uint32_t) device.locationNumber;
 
             if (device.hasUnifiedMemory && device.recommendedMaxWorkingSetSize > 0)
                 gpu->shared.total = device.recommendedMaxWorkingSetSize;
-            #endif
         }
         return NULL;
     }
     return "Metal API is not supported by this macOS version";
+#else
+    // iOS stub: just assign default Metal device
+    FFGPUResult* gpu = ffListAdd(gpus);
+    gpu->index = 0;
+    gpu->type = FF_GPU_TYPE_INTEGRATED;
+    ffStrbufInitStatic(&gpu->platformApi, "Metal");
+    ffStrbufInit(&gpu->name);
+    ffStrbufAppendS(&gpu->name, "Apple GPU");
+    ffStrbufInit(&gpu->vendor);
+    ffStrbufAppendS(&gpu->vendor, "Apple");
+    gpu->frequency = FF_GPU_FREQUENCY_UNSET;
+    gpu->dedicated.total = gpu->dedicated.used = 0;
+    gpu->shared.total = gpu->shared.used = 0;
+    gpu->coreCount = 0;
+    gpu->coreUsage = 0;
+    gpu->temperature = FF_GPU_TEMP_UNSET;
+    ffStrbufInit(&gpu->driver);
+    ffStrbufAppendS(&gpu->driver, "Metal");
+    return NULL;
+#endif
 }
