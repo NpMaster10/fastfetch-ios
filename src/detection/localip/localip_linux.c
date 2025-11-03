@@ -29,7 +29,7 @@
 #if defined(__FreeBSD__) || defined(__OpenBSD__) || (defined(__APPLE__) && !defined(__IPHONE_OS_VERSION_MIN_REQUIRED)) || defined(__NetBSD__) || defined(__HAIKU__)
 #include <net/if_media.h>
 #include <net/if_dl.h>
-#elif !defined(__GNU__) || !defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
+#elif !defined(__GNU__) && !defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
 #include <netpacket/packet.h>
 #endif
 #if defined(__sun) || defined(__HAIKU__)
