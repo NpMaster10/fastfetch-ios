@@ -644,8 +644,8 @@ const char* ffDetectLocalIps(const FFLocalIpOptions* options, FFlist* results)
                     if (0)
                     {
                         FF_DEBUG("Interface %s media type: 0x%x", iface->name.chars, IFM_SUBTYPE(ifmr.ifm_active));
-                        //switch (IFM_SUBTYPE(ifmr.ifm_active))
-                        switch(0)
+                        #if !TARGET_OS_IPHONE
+                        switch (IFM_SUBTYPE(ifmr.ifm_active))
                         {
                         #ifdef IFM_HPNA_1
                         case IFM_HPNA_1:
@@ -1012,6 +1012,7 @@ const char* ffDetectLocalIps(const FFLocalIpOptions* options, FFlist* results)
                             FF_DEBUG("Unknown media subtype for interface %s", iface->name.chars);
                             break;
                         }
+                        #endif
                         if (iface->speed > 0)
                             FF_DEBUG("Interface %s speed: %d Mbps", iface->name.chars, iface->speed);
                     }
