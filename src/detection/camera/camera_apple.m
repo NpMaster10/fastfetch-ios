@@ -27,7 +27,12 @@ const char* ffDetectCamera(FFlist* result)
     }
     #endif
     if (deviceType == NULL)
-        deviceType = AVCaptureDeviceTypeExternalUnknown;
+        #if TARGET_OS_MAC && !TARGET_OS_IPHONE
+deviceType = AVCaptureDeviceTypeExternalUnknown;
+#else
+// iOS: only built-in cameras are available
+deviceType = AVCaptureDeviceTypeBuiltInWideAngleCamera;
+#endif
 
     AVCaptureDeviceDiscoverySession* session = [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:@[AVCaptureDeviceTypeBuiltInWideAngleCamera, deviceType]
                                                                                 mediaType:AVMediaTypeVideo
