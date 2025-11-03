@@ -7,6 +7,15 @@
 #include <termios.h>
 #include <dirent.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <stdarg.h>
+#include <string.h>
+
+#if defined(__APPLE__)
+    #include <TargetConditionals.h>
+#endif
+
 #ifndef __APPLE__
 #include <poll.h>
 #else
@@ -14,16 +23,18 @@
 #endif
 
 #if FF_HAVE_WORDEXP
-    #include <wordexp.h>
+#include <wordexp.h>
 #else
-    #warning "<wordexp.h> is not available, use glob(3) instead"
-    #include <glob.h>
+#warning "<wordexp.h> is not available, using glob(3) instead"
+#include <glob.h>
 #endif
 
+// ------------------------
+// Subfolder creation
+// ------------------------
 static void createSubfolders(const char* fileName)
 {
     FF_STRBUF_AUTO_DESTROY path = ffStrbufCreate();
-
     char *token = NULL;
     while((token = strchr(fileName, '/')) != NULL)
     {
@@ -33,6 +44,9 @@ static void createSubfolders(const char* fileName)
     }
 }
 
+// ------------------------
+// File write
+// ------------------------
 bool ffWriteFileData(const char* fileName, size_t dataSize, const void* data)
 {
     int openFlagsModes = O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC;
@@ -55,13 +69,15 @@ bool ffWriteFileData(const char* fileName, size_t dataSize, const void* data)
     return write(fd, data, dataSize) > 0;
 }
 
+// ------------------------
+// Read helpers
+// ------------------------
 static inline void readWithLength(int fd, FFstrbuf* buffer, uint32_t length)
 {
     ffStrbufEnsureFixedLengthFree(buffer, length);
     ssize_t bytesRead = 0;
-    while(
-        length > 0 && (bytesRead = read(fd, buffer->chars + buffer->length, length)) > 0
-    ) {
+    while(length > 0 && (bytesRead = read(fd, buffer->chars + buffer->length, length)) > 0)
+    {
         buffer->length += (uint32_t) bytesRead;
         length -= (uint32_t) bytesRead;
     }
@@ -72,16 +88,18 @@ static inline void readUntilEOF(int fd, FFstrbuf* buffer)
     ffStrbufEnsureFree(buffer, 31);
     uint32_t available = ffStrbufGetFree(buffer);
     ssize_t bytesRead = 0;
-    while(
-        (bytesRead = read(fd, buffer->chars + buffer->length, available)) > 0
-    ) {
+    while((bytesRead = read(fd, buffer->chars + buffer->length, available)) > 0)
+    {
         buffer->length += (uint32_t) bytesRead;
         if((uint32_t) bytesRead == available)
-            ffStrbufEnsureFree(buffer, buffer->allocated - 1); // Doubles capacity every round. -1 for the null byte.
+            ffStrbufEnsureFree(buffer, buffer->allocated - 1);
         available = ffStrbufGetFree(buffer);
     }
 }
 
+// ------------------------
+// File read
+// ------------------------
 bool ffAppendFDBuffer(int fd, FFstrbuf* buffer)
 {
     struct stat fileInfo;
@@ -94,7 +112,6 @@ bool ffAppendFDBuffer(int fd, FFstrbuf* buffer)
         readUntilEOF(fd, buffer);
 
     buffer->chars[buffer->length] = '\0';
-
     return buffer->length > 0;
 }
 
@@ -134,14 +151,32 @@ bool ffAppendFileBufferRelative(int dfd, const char* fileName, FFstrbuf* buffer)
     return ffAppendFDBuffer(fd, buffer);
 }
 
+// ------------------------
+// Path expansion
+// ------------------------
 bool ffPathExpandEnv(const char* in, FFstrbuf* out)
 {
     bool result = false;
 
-    #if FF_HAVE_WORDEXP
-
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+    // iOS: only expand ~
+    if(in[0] == '~')
+    {
+        const char* home = getenv("HOME");
+        if(!home)
+            home = "/";
+        ffStrbufAppendS(out, home);
+        ffStrbufAppendS(out, in + 1);
+        result = true;
+    }
+    else
+    {
+        ffStrbufSetS(out, in);
+        result = true;
+    }
+#elif FF_HAVE_WORDEXP
     wordexp_t exp;
-    if (wordexp(in, &exp, 0) != 0) // WARN: 0 = no safety flags; command substitution allowed
+    if (wordexp(in, &exp, 0) != 0)
         return false;
 
     if (exp.we_wordc >= 1)
@@ -151,17 +186,15 @@ bool ffPathExpandEnv(const char* in, FFstrbuf* out)
     }
 
     wordfree(&exp);
-
-    #else
-
+#else
     glob_t gb;
     if (glob(in, GLOB_NOSORT
-            #ifdef GLOB_TILDE
-            | GLOB_TILDE
-            #endif
-            #ifdef GLOB_BRACE
-            | GLOB_BRACE
-            #endif
+#ifdef GLOB_TILDE
+        | GLOB_TILDE
+#endif
+#ifdef GLOB_BRACE
+        | GLOB_BRACE
+#endif
         , NULL, &gb) != 0)
         return false;
 
@@ -172,14 +205,17 @@ bool ffPathExpandEnv(const char* in, FFstrbuf* out)
     }
 
     globfree(&gb);
-
-    #endif
+#endif
 
     return result;
 }
 
+// ------------------------
+// Terminal helpers
+// ------------------------
 static int ftty = -1;
 static struct termios oldTerm;
+
 void restoreTerm(void)
 {
     tcsetattr(ftty, TCSAFLUSH, &oldTerm);
@@ -205,21 +241,18 @@ const char* ffGetTerminalResponse(const char* request, int nParams, const char* 
 
     ffWriteFDData(ftty, strlen(request), request);
 
-    //Give the terminal some time to respond
-    #ifndef __APPLE__
-    if(poll(&(struct pollfd) { .fd = ftty, .events = POLLIN }, 1, FF_IO_TERM_RESP_WAIT_MS) <= 0)
+#ifndef __APPLE__
+    if(poll(&(struct pollfd){.fd = ftty, .events = POLLIN}, 1, FF_IO_TERM_RESP_WAIT_MS) <= 0)
         return "poll(/dev/tty) timeout or failed";
-    #else
+#else
     {
-        // On macOS, poll(/dev/tty) always returns immediately
-        // See also https://nathancraddock.com/blog/macos-dev-tty-polling/
         fd_set rd;
         FD_ZERO(&rd);
         FD_SET(ftty, &rd);
-        if(select(ftty + 1, &rd, NULL, NULL, &(struct timeval) { .tv_sec = FF_IO_TERM_RESP_WAIT_MS / 1000, .tv_usec = (FF_IO_TERM_RESP_WAIT_MS % 1000) * 1000 }) <= 0)
+        if(select(ftty + 1, &rd, NULL, NULL, &(struct timeval){ .tv_sec = FF_IO_TERM_RESP_WAIT_MS / 1000, .tv_usec = (FF_IO_TERM_RESP_WAIT_MS % 1000) * 1000 }) <= 0)
             return "select(/dev/tty) timeout or failed";
     }
-    #endif
+#endif
 
     char buffer[1024];
     size_t bytesRead = 0;
@@ -227,17 +260,16 @@ const char* ffGetTerminalResponse(const char* request, int nParams, const char* 
     va_list args;
     va_start(args, format);
 
-    while (true)
+    while(true)
     {
         ssize_t nRead = read(ftty, buffer + bytesRead, sizeof(buffer) - bytesRead - 1);
-
-        if (nRead <= 0)
+        if(nRead <= 0)
         {
             va_end(args);
             return "read(STDIN_FILENO, buffer, sizeof(buffer) - 1) failed";
         }
 
-        bytesRead += (size_t) nRead;
+        bytesRead += (size_t)nRead;
         buffer[bytesRead] = '\0';
 
         va_list cargs;
@@ -245,26 +277,23 @@ const char* ffGetTerminalResponse(const char* request, int nParams, const char* 
         int ret = vsscanf(buffer, format, cargs);
         va_end(cargs);
 
-        if (ret <= 0)
-        {
-            va_end(args);
-            return "vsscanf(buffer, format, args) failed";
-        }
-        if (ret >= nParams)
+        if(ret > 0 && ret >= nParams)
             break;
     }
 
     va_end(args);
-
     return NULL;
 }
 
+// ------------------------
+// Suppress output
+// ------------------------
 bool ffSuppressIO(bool suppress)
 {
-    #ifndef NDEBUG
+#ifndef NDEBUG
     if (instance.config.display.debugMode)
         return false;
-    #endif
+#endif
 
     static bool init = false;
     static int origOut = -1;
@@ -293,15 +322,16 @@ bool ffSuppressIO(bool suppress)
     return true;
 }
 
-void listFilesRecursively(uint32_t baseLength, FFstrbuf* folder, uint8_t indentation, const char* folderName, bool pretty)
+// ------------------------
+// Recursive file listing
+// ------------------------
+static void listFilesRecursively(uint32_t baseLength, FFstrbuf* folder, uint8_t indentation, const char* folderName, bool pretty)
 {
     FF_AUTO_CLOSE_FD int dfd = open(folder->chars, O_RDONLY | O_CLOEXEC);
-    if (dfd < 0)
-        return;
+    if (dfd < 0) return;
 
     DIR* dir = fdopendir(dfd);
-    if(dir == NULL)
-        return;
+    if(dir == NULL) return;
 
     uint32_t folderLength = folder->length;
 
@@ -313,11 +343,9 @@ void listFilesRecursively(uint32_t baseLength, FFstrbuf* folder, uint8_t indenta
     }
 
     struct dirent* entry;
-
     while((entry = readdir(dir)) != NULL)
     {
-        if(entry->d_name[0] == '.') // skip hidden files
-            continue;
+        if(entry->d_name[0] == '.') continue;
 
         bool isDir = false;
 #if !defined(__sun) && !defined(__HAIKU__)
@@ -327,21 +355,22 @@ void listFilesRecursively(uint32_t baseLength, FFstrbuf* folder, uint8_t indenta
 #endif
         {
             struct stat stbuf;
-            if (fstatat(dfd, entry->d_name, &stbuf, 0) < 0)
+            if(fstatat(dfd, entry->d_name, &stbuf, 0) < 0)
                 isDir = false;
             else
                 isDir = S_ISDIR(stbuf.st_mode);
         }
-        if (isDir)
+
+        if(isDir)
         {
             ffStrbufAppendS(folder, entry->d_name);
             ffStrbufAppendC(folder, '/');
-            listFilesRecursively(baseLength, folder, (uint8_t) (indentation + 1), entry->d_name, pretty);
+            listFilesRecursively(baseLength, folder, (uint8_t)(indentation + 1), entry->d_name, pretty);
             ffStrbufSubstrBefore(folder, folderLength);
             continue;
         }
 
-        if (pretty)
+        if(pretty)
         {
             for(uint8_t i = 0; i < indentation; i++)
                 fputs("  | ", stdout);
@@ -364,11 +393,13 @@ void ffListFilesRecursively(const char* path, bool pretty)
     listFilesRecursively(folder.length, &folder, 0, NULL, pretty);
 }
 
+// ------------------------
+// Misc
+// ------------------------
 FFNativeFD ffGetNullFD(void)
 {
     static FFNativeFD hNullFile = -1;
-    if (hNullFile != -1)
-        return hNullFile;
+    if(hNullFile != -1) return hNullFile;
     hNullFile = open("/dev/null", O_WRONLY | O_CLOEXEC);
     return hNullFile;
 }
