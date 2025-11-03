@@ -2,6 +2,12 @@
 #include "poweradapter.h"
 #include "util/apple/cf_helpers.h"
 
+#if defined(__APPLE__)
+    #include <TargetConditionals.h>
+#endif
+
+#if defined(__APPLE__) && TARGET_OS_MAC && !TARGET_OS_IPHONE
+
 #include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPSKeys.h>
 
@@ -20,22 +26,23 @@ const char* ffDetectPowerAdapter(FFlist* results)
         adapter->watts = 0;
 
         ffCfDictGetString(details, CFSTR(kIOPSNameKey), &adapter->name);
-        if (ffCfDictGetString(details, CFSTR("Model"), &adapter->modelName) != NULL)
-        {
-            int adapterId;
-            if (ffCfDictGetInt(details, CFSTR(kIOPSPowerAdapterIDKey), &adapterId) == 0)
-                ffStrbufSetF(&adapter->modelName, "%d", adapterId);
-        }
+        ffCfDictGetString(details, CFSTR("Model"), &adapter->modelName);
         ffCfDictGetString(details, CFSTR("Manufacturer"), &adapter->manufacturer);
         ffCfDictGetString(details, CFSTR("Description"), &adapter->description);
-        if (ffCfDictGetString(details, CFSTR("SerialString"), &adapter->serial) != NULL)
-        {
-            int serialNumber;
-            if (ffCfDictGetInt(details, CFSTR(kIOPSPowerAdapterSerialNumberKey), &serialNumber) == 0)
-                ffStrbufSetF(&adapter->serial, "%X", serialNumber);
-        }
+        ffCfDictGetString(details, CFSTR("SerialString"), &adapter->serial);
         ffCfDictGetInt(details, CFSTR(kIOPSPowerAdapterWattsKey), &adapter->watts);
     }
 
     return NULL;
 }
+
+#else
+
+// iOS / unsupported platforms
+const char* ffDetectPowerAdapter(FFlist* results)
+{
+    (void)results; // silence unused parameter warning
+    return "Power adapter detection not supported on this platform";
+}
+
+#endif
